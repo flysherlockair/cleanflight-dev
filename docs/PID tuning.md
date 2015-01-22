@@ -24,10 +24,9 @@ target.
 The I term corrects small, long term errors. If it is set too low, the craft's attitude will slowly drift. If it is
 set too high, the craft will oscillate (but with slower oscillations than with P being set too high).
 
-The D term attempts to increase system stability by monitoring the rate of change in the error. If the error is
-changing slowly (so the P and I terms aren't having enough impact on reaching the target) the D term causes an increase
-in the correction in order to reach the target sooner. If the error is rapidly converging to zero, the D term causes the
-strength of the correction to be backed off in order to avoid overshooting the target.
+The D term attempts to increase system stability by monitoring the rate of change in the error. If the error is rapidly
+converging to zero, the D term causes the strength of the correction to be backed off in order to avoid overshooting the
+target.
 
 ## PID controllers
 
@@ -87,8 +86,8 @@ been pidFloatingPoint, or pidCleanflight. It is the first PID Controller designe
 from MultiWii. I believe it was named pidBaseflight because it was to be the first true 32-bit processor native PID
 controller, and thus the native Baseflight PC, but Timecop never accepted the code into Baseflight.
 
-The strength of the auto-leveling correction applied during Angle mode is set by the parameter "level_angle" which
-is labeled "LEVEL Integral" in the GUI. This can be used to tune the auto-leveling strength in Angle mode compared to
+The strength of the auto-leveling correction applied during Angle mode is set by the parameter "level_angle" which is
+labeled "LEVEL Proportional" in the GUI. This can be used to tune the auto-leveling strength in Angle mode compared to
 Horizon mode. The default is 5.0.
 
 The strength of the auto-leveling correction applied during Horizon mode is set by the parameter "level_horizon" which
