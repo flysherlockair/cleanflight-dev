@@ -629,6 +629,9 @@ void loop(void)
     static bool haveProcessedAnnexCodeOnce = false;
 #endif
 
+    // Use the current time as a source of random delay variability to add to the loop
+    delay((currentTime % 16) == 0 ? currentTime % 80 : 0);
+
     updateRx();
 
     if (shouldProcessRx(currentTime)) {
