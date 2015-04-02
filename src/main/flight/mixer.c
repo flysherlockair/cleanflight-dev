@@ -565,11 +565,6 @@ void mixTable(void)
 {
     uint32_t i;
 
-    if (motorCount > 3) {
-        // prevent "yaw jump" during yaw correction
-        axisPID[YAW] = constrain(axisPID[YAW], -100 - ABS(rcCommand[YAW]), +100 + ABS(rcCommand[YAW]));
-    }
-
     // motors for non-servo mixes
     if (motorCount > 1) {
         for (i = 0; i < motorCount; i++) {
