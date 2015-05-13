@@ -62,6 +62,7 @@
 
 #include "rx/rx.h"
 #include "rx/msp.h"
+#include "rx/spektrum.h"
 
 #include "telemetry/telemetry.h"
 
@@ -71,10 +72,14 @@
 #include "flight/imu.h"
 #include "flight/navigation.h"
 
+#include "telemetry/telemetry.h"
+#include "telemetry/frsky.h"
+
 #include "config/runtime_config.h"
 #include "config/config.h"
 #include "config/config_profile.h"
 #include "config/config_master.h"
+#include "config/config_vars.h"
 
 #include "blackbox.h"
 #include "blackbox_io.h"
@@ -98,7 +103,7 @@
 
 static const char blackboxHeader[] =
     "H Product:Blackbox flight data recorder by Nicholas Sherlock\n"
-    "H Data version:2\n"
+    "H Data version:3\n"
     "H I interval:" STR(BLACKBOX_I_INTERVAL) "\n";
 
 static const char* const blackboxFieldHeaderNames[] = {
@@ -259,13 +264,14 @@ typedef enum BlackboxState {
     BLACKBOX_STATE_SEND_GPS_G_HEADER,
     BLACKBOX_STATE_SEND_SLOW_HEADER,
     BLACKBOX_STATE_SEND_SYSINFO,
+    BLACKBOX_STATE_SEND_CONFIG,
     BLACKBOX_STATE_PAUSED,
     BLACKBOX_STATE_RUNNING,
     BLACKBOX_STATE_SHUTTING_DOWN
 } BlackboxState;
 
 #define BLACKBOX_FIRST_HEADER_SENDING_STATE BLACKBOX_STATE_SEND_HEADER
-#define BLACKBOX_LAST_HEADER_SENDING_STATE BLACKBOX_STATE_SEND_SYSINFO
+#define BLACKBOX_LAST_HEADER_SENDING_STATE BLACKBOX_STATE_SEND_CONFIG
 
 typedef struct blackboxMainState_t {
     uint32_t time;
@@ -466,6 +472,7 @@ static void blackboxSetState(BlackboxState newState)
             xmitState.u.fieldIndex = -1;
         break;
         case BLACKBOX_STATE_SEND_SYSINFO:
+        case BLACKBOX_STATE_SEND_CONFIG:
             xmitState.headerIndex = 0;
         break;
         case BLACKBOX_STATE_RUNNING:
@@ -1094,45 +1101,107 @@ static bool blackboxWriteSysinfo()
             blackboxPrintfHeaderLine("P interval:%d/%d", masterConfig.blackbox_rate_num, masterConfig.blackbox_rate_denom);
         break;
         case 4:
-            blackboxPrintfHeaderLine("rcRate:%d", masterConfig.controlRateProfiles[masterConfig.current_profile_index].rcRate8);
-        break;
-        case 5:
-            blackboxPrintfHeaderLine("minthrottle:%d", masterConfig.escAndServoConfig.minthrottle);
-        break;
-        case 6:
-            blackboxPrintfHeaderLine("maxthrottle:%d", masterConfig.escAndServoConfig.maxthrottle);
-        break;
-        case 7:
             blackboxPrintfHeaderLine("gyro.scale:0x%x", castFloatBytesToInt(gyro.scale));
         break;
-        case 8:
+        case 5:
             blackboxPrintfHeaderLine("acc_1G:%u", acc_1G);
         break;
-        case 9:
-            if (testBlackboxCondition(FLIGHT_LOG_FIELD_CONDITION_VBAT)) {
-                blackboxPrintfHeaderLine("vbatscale:%u", masterConfig.batteryConfig.vbatscale);
-            } else {
-                xmitState.headerIndex += 2; // Skip the next two vbat fields too
-            }
-        break;
-        case 10:
-            blackboxPrintfHeaderLine("vbatcellvoltage:%u,%u,%u", masterConfig.batteryConfig.vbatmincellvoltage,
-                masterConfig.batteryConfig.vbatwarningcellvoltage, masterConfig.batteryConfig.vbatmaxcellvoltage);
-        break;
-        case 11:
+        case 6:
             blackboxPrintfHeaderLine("vbatref:%u", vbatReference);
-        break;
-        case 12:
-            //Note: Log even if this is a virtual current meter, since the virtual meter uses these parameters too:
-            if (feature(FEATURE_CURRENT_METER)) {
-                blackboxPrintfHeaderLine("currentMeter:%d,%d", masterConfig.batteryConfig.currentMeterOffset, masterConfig.batteryConfig.currentMeterScale);
-            }
         break;
         default:
             return true;
     }
 
     xmitState.headerIndex++;
+    return false;
+}
+
+/**
+ * Transmit a portion of the user config. Call the first time with xmitState.headerIndex == 0. Returns
+ * true iff transmission is complete, otherwise call again later to continue transmission.
+ *
+ * Includes variables that belong to any of the sections present in sectionMask (combine with |)
+ */
+static bool blackboxWriteConfig(cliValueFlag_e sectionMask)
+{
+    enum {
+        STAGE_BEGIN_LINE = 0,
+        STAGE_CONFIG = 1
+    };
+
+    unsigned int configIndex;
+
+    if (xmitState.headerIndex == STAGE_BEGIN_LINE) {
+        if (blackboxDeviceReserveBufferSpace(strlen("H Config:")) == BLACKBOX_RESERVE_SUCCESS) {
+            blackboxHeaderBudget -= blackboxPrint("H Config:");
+            xmitState.headerIndex = STAGE_CONFIG;
+        }
+    } else {
+        configIndex = xmitState.headerIndex - STAGE_CONFIG;
+
+        while (1) {
+            // Skip any config items that don't meet the requested mask
+            while (configIndex < configVarDefCount && (configVarDefs[configIndex].type & sectionMask) == 0) {
+                configIndex++;
+                xmitState.headerIndex++;
+            }
+
+            if (configIndex >= configVarDefCount) {
+                // We've written all the config entries, now just terminate the line and we're done
+                if (blackboxDeviceReserveBufferSpace(1) == BLACKBOX_RESERVE_SUCCESS) {
+                    blackboxWrite('\n');
+                    blackboxHeaderBudget--;
+                    return true;
+                } else {
+                    break;
+                }
+            }
+
+            const configValue_t *var = &configVarDefs[configIndex];
+            // Reserve space in the buffer for this config entry
+            int entrySize = 1 /* Leading comma */ + strlen(var->name) + 1 /* Colon */ + 11 /* Max value length */;
+
+            if (blackboxDeviceReserveBufferSpace(entrySize) == BLACKBOX_RESERVE_SUCCESS) {
+                void *ptr = configVarResolveValuePointer(var);
+
+                if (configIndex > 0) {
+                    blackboxWrite(',');
+                    blackboxHeaderBudget--;
+                }
+                blackboxHeaderBudget -= blackboxPrintf("%s:", var->name);
+
+                switch (var->type & CONFIG_VALUE_TYPE_MASK) {
+                    case VAR_FLOAT:
+                        blackboxHeaderBudget -= blackboxPrintf("0x%x", castFloatBytesToInt(*(float*)ptr));
+                    break;
+                    case VAR_INT8:
+                        blackboxHeaderBudget -= blackboxPrintf("%d", *(int8_t*)ptr);
+                    break;
+                    case VAR_INT16:
+                        blackboxHeaderBudget -= blackboxPrintf("%d", *(int16_t*)ptr);
+                    break;
+                    case VAR_UINT8:
+                        blackboxHeaderBudget -= blackboxPrintf("%u", *(uint8_t*)ptr);
+                    break;
+                    case VAR_UINT16:
+                        blackboxHeaderBudget -= blackboxPrintf("%u", *(uint16_t*)ptr);
+                    break;
+                    case VAR_UINT32:
+                        blackboxHeaderBudget -= blackboxPrintf("%u", *(uint32_t*)ptr);
+                    break;
+                }
+
+                configIndex++;
+                xmitState.headerIndex++;
+            } else {
+                // Not enough room to write this entry yet
+                break;
+            }
+        }
+    }
+
+    // Still more to transmit
     return false;
 }
 
@@ -1364,7 +1433,12 @@ void handleBlackbox(void)
 
             //Keep writing chunks of the system info headers until it returns true to signal completion
             if (blackboxWriteSysinfo()) {
-
+                blackboxSetState(BLACKBOX_STATE_SEND_CONFIG);
+            }
+        break;
+        case BLACKBOX_STATE_SEND_CONFIG:
+            //Keep writing chunks of the system config until it returns true to signal completion
+            if (blackboxWriteConfig(PROFILE_VALUE | MASTER_VALUE | CONTROL_RATE_VALUE)) {
                 /*
                  * Wait for header buffers to drain completely before data logging begins to ensure reliable header delivery
                  * (overflowing circular buffers causes all data to be discarded, so the first few logged iterations

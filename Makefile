@@ -219,6 +219,7 @@ COMMON_SRC	 = build_config.c \
 		   $(TARGET_SRC) \
 		   config/config.c \
 		   config/runtime_config.c \
+		   config/config_vars.c \
 		   common/maths.c \
 		   common/printf.c \
 		   common/typeconversion.c \
