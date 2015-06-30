@@ -161,7 +161,7 @@ static const char * const featureNames[] = {
     "SERVO_TILT", "SOFTSERIAL", "GPS", "FAILSAFE",
     "SONAR", "TELEMETRY", "CURRENT_METER", "3D", "RX_PARALLEL_PWM",
     "RX_MSP", "RSSI_ADC", "LED_STRIP", "DISPLAY", "ONESHOT125",
-    "BLACKBOX", NULL
+    "BLACKBOX", "PROFILER", NULL
 };
 
 #ifndef CJMCU
@@ -572,13 +572,14 @@ static void cliSerial(char *cmdline)
             if (!serialIsPortAvailable(masterConfig.serialConfig.portConfigs[i].identifier)) {
                 continue;
             };
-            printf("serial %d %d %ld %ld %ld %ld\r\n" ,
+            printf("serial %d %d %ld %ld %ld %ld %ld\r\n" ,
                 masterConfig.serialConfig.portConfigs[i].identifier,
                 masterConfig.serialConfig.portConfigs[i].functionMask,
                 baudRates[masterConfig.serialConfig.portConfigs[i].msp_baudrateIndex],
                 baudRates[masterConfig.serialConfig.portConfigs[i].gps_baudrateIndex],
                 baudRates[masterConfig.serialConfig.portConfigs[i].telemetry_baudrateIndex],
-                baudRates[masterConfig.serialConfig.portConfigs[i].blackbox_baudrateIndex]
+                baudRates[masterConfig.serialConfig.portConfigs[i].blackbox_baudrateIndex],
+                baudRates[masterConfig.serialConfig.portConfigs[i].profiler_baudrateIndex]
             );
         }
         return;
@@ -607,7 +608,7 @@ static void cliSerial(char *cmdline)
         validArgumentCount++;
     }
 
-    for (i = 0; i < 4; i ++) {
+    for (i = 0; i < 5; i ++) {
         ptr = strchr(ptr, ' ');
         if (!ptr) {
             break;
@@ -644,6 +645,12 @@ static void cliSerial(char *cmdline)
                     continue;
                 }
                 portConfig.blackbox_baudrateIndex = baudRateIndex;
+                break;
+            case 4:
+                if (baudRateIndex < BAUD_19200 || baudRateIndex > BAUD_250000) {
+                    continue;
+                }
+                portConfig.profiler_baudrateIndex = baudRateIndex;
                 break;
         }
 

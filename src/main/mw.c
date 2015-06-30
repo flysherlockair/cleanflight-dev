@@ -63,7 +63,9 @@
 #include "rx/msp.h"
 
 #include "telemetry/telemetry.h"
+
 #include "blackbox/blackbox.h"
+#include "blackbox/profiler.h"
 
 #include "flight/mixer.h"
 #include "flight/pid.h"
@@ -321,6 +323,15 @@ void mwDisarm(void)
     if (ARMING_FLAG(ARMED)) {
         DISABLE_ARMING_FLAG(ARMED);
 
+#ifdef USE_PROFILER
+       if (feature(FEATURE_PROFILER)) {
+           profilerStop();
+
+           // If we were sharing a port with MSP then it needs to take it back
+           mspAllocateSerialPorts(&masterConfig.serialConfig);
+       }
+#endif
+
 #ifdef BLACKBOX
         if (feature(FEATURE_BLACKBOX)) {
             finishBlackbox();
@@ -350,6 +361,17 @@ void mwArm(void)
         if (!ARMING_FLAG(PREVENT_ARMING)) {
             ENABLE_ARMING_FLAG(ARMED);
             headFreeModeHold = heading;
+
+#ifdef USE_PROFILER
+            if (feature(FEATURE_PROFILER)) {
+                serialPort_t *sharedProfilerAndMspPort = findSharedSerialPort(FUNCTION_PROFILER, FUNCTION_MSP);
+                if (sharedProfilerAndMspPort) {
+                    mspReleasePortIfAllocated(sharedProfilerAndMspPort);
+                }
+
+                profilerStart();
+            }
+#endif
 
 #ifdef BLACKBOX
             if (feature(FEATURE_BLACKBOX)) {
@@ -825,6 +847,12 @@ void loop(void)
         if (!cliMode && feature(FEATURE_BLACKBOX)) {
             handleBlackbox();
         }
+#endif
+
+#ifdef USE_PROFILER
+    if (feature(FEATURE_PROFILER)) {
+        profilerProcess();
+    }
 #endif
     }
 

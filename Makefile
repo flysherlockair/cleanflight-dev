@@ -273,7 +273,8 @@ HIGHEND_SRC  = flight/autotune.c \
 		   sensors/sonar.c \
 		   sensors/barometer.c \
 		   blackbox/blackbox.c \
-		   blackbox/blackbox_io.c
+		   blackbox/blackbox_io.c \
+		   blackbox/profiler.c
 
 VCP_SRC	 = \
 		   vcp/hw_config.c \
@@ -421,6 +422,7 @@ CJMCU_SRC	 = \
 		   hardware_revision.c \
 		   blackbox/blackbox.c \
 		   blackbox/blackbox_io.c \
+		   blackbox/profiler.c \
 		   $(COMMON_SRC)
 
 CC3D_SRC	 = \

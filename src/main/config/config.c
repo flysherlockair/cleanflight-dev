@@ -276,6 +276,7 @@ void resetSerialConfig(serialConfig_t *serialConfig)
         serialConfig->portConfigs[index].gps_baudrateIndex = BAUD_57600;
         serialConfig->portConfigs[index].telemetry_baudrateIndex = BAUD_AUTO;
         serialConfig->portConfigs[index].blackbox_baudrateIndex = BAUD_115200;
+        serialConfig->portConfigs[index].profiler_baudrateIndex = BAUD_115200;
     }
 
     serialConfig->portConfigs[0].functionMask = FUNCTION_MSP;
@@ -770,6 +771,24 @@ void validateAndFixConfig(void)
     )) {
         // led strip needs the same timer as softserial
         featureClear(FEATURE_LED_STRIP);
+    }
+#endif
+
+#if defined(USE_PROFILER) && (defined(USE_SOFTSERIAL1) || defined(USE_SOFTSERIAL2) || defined(LED_STRIP))
+    if (
+            0
+#ifdef LED_STRIP
+            || (featureConfigured(FEATURE_LED_STRIP) && PROFILER_TIMER == LED_STRIP_TIMER)
+#endif
+#ifdef USE_SOFTSERIAL1
+            || (featureConfigured(FEATURE_SOFTSERIAL) && PROFILER_TIMER == SOFTSERIAL_1_TIMER)
+#endif
+#ifdef USE_SOFTSERIAL2
+            || (featureConfigured(FEATURE_SOFTSERIAL) && PROFILER_TIMER == SOFTSERIAL_2_TIMER)
+#endif
+    ) {
+        // profiler needs the same timer as softserial/ledstrip
+        featureClear(FEATURE_PROFILER);
     }
 #endif
 

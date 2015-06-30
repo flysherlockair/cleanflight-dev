@@ -420,6 +420,10 @@ pwmOutputConfiguration_t *pwmInit(drv_pwm_config_t *init)
         if (init->useSoftSerial && timerHardwarePtr->tim == SOFTSERIAL_2_TIMER)
             continue;
 #endif
+#ifdef PROFILER_TIMER
+        if (init->useProfiler && timerHardwarePtr->tim == PROFILER_TIMER)
+            continue;
+#endif
 
 #ifdef LED_STRIP_TIMER
         // skip LED Strip output

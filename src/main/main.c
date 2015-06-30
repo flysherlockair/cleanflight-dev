@@ -71,7 +71,9 @@
 #include "sensors/initialisation.h"
 
 #include "telemetry/telemetry.h"
+
 #include "blackbox/blackbox.h"
+#include "blackbox/profiler.h"
 
 #include "flight/pid.h"
 #include "flight/imu.h"
@@ -228,6 +230,7 @@ void init(void)
 #endif
     pwm_params.useVbat = feature(FEATURE_VBAT);
     pwm_params.useSoftSerial = feature(FEATURE_SOFTSERIAL);
+    pwm_params.useProfiler = feature(FEATURE_PROFILER);
     pwm_params.useParallelPWM = feature(FEATURE_RX_PARALLEL_PWM);
     pwm_params.useRSSIADC = feature(FEATURE_RSSI_ADC);
     pwm_params.useCurrentMeterADC = feature(FEATURE_CURRENT_METER)

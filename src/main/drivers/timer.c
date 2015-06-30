@@ -24,6 +24,8 @@
 #include "common/utils.h"
 #include "common/atomic.h"
 
+#include "blackbox/profiler.h"
+
 #include "nvic.h"
 
 #include "gpio.h"
@@ -765,7 +767,38 @@ _TIM_IRQ_HANDLER(TIM1_UP_TIM16_IRQHandler, 1);       // timer16 is not used
 _TIM_IRQ_HANDLER(TIM2_IRQHandler, 2);
 #endif
 #if USED_TIMERS & TIM_N(3)
+
+#ifdef USE_PROFILER
+
+__attribute__((used))
+extern void TIM3_IRQHandler_part2(void *returnAddress, void *stackFrame)
+{
+    profilerLogSample(returnAddress, stackFrame);
+
+    timCCxHandler(TIM3, &timerConfig[TIMER_INDEX(3)]);
+}
+
+__attribute__((naked))
+void TIM3_IRQHandler(void)
+{
+    /*
+     * Give the current return address and stack frame as arguments to _part2.
+     *
+     * I would use __builtin_frame_address in a regular C function instead, but that value includes a stack offset
+     * added by the GCC function prolog, so it's too unreliable (offset can change with optimization levels). Using
+     * a naked handler means we have no prolog to deal with.
+     */
+    asm volatile (
+        "mov r0, lr\n"
+        "mov r1, sp\n"
+        "b TIM3_IRQHandler_part2"
+    );
+}
+
+#else
 _TIM_IRQ_HANDLER(TIM3_IRQHandler, 3);
+#endif
+
 #endif
 #if USED_TIMERS & TIM_N(4)
 _TIM_IRQ_HANDLER(TIM4_IRQHandler, 4);

@@ -131,6 +131,12 @@
 #define SOFTSERIAL_2_TIMER_RX_HARDWARE 6 // PWM 7
 #define SOFTSERIAL_2_TIMER_TX_HARDWARE 7 // PWM 8
 
+// Uncomment this line to enable profiling feature for development:
+// #define USE_PROFILER
+// Use the same timer as SOFTSERIAL would since we have similar requirements
+#define PROFILER_TIMER SOFTSERIAL_1_TIMER
+#define PROFILER_TIMER_HARDWARE SOFTSERIAL_1_TIMER_RX_HARDWARE
+
 // USART3 only on NAZE32_SP - Flex Port
 #define USART3_RX_PIN Pin_11
 #define USART3_TX_PIN Pin_10
