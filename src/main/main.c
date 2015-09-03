@@ -527,6 +527,16 @@ void processLoopback(void) {
 int main(void) {
     init();
 
+#ifdef BLACKBOX
+    if (feature(FEATURE_BLACKBOX)) {
+        serialPort_t *sharedBlackboxAndMspPort = findSharedSerialPort(FUNCTION_BLACKBOX, FUNCTION_MSP);
+        if (sharedBlackboxAndMspPort) {
+            mspReleasePortIfAllocated(sharedBlackboxAndMspPort);
+        }
+        startBlackbox();
+    }
+#endif
+
     while (1) {
         loop();
         processLoopback();
