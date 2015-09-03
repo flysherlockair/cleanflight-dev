@@ -93,6 +93,7 @@ enum {
 /* IBat monitoring interval (in microseconds) - 6 default looptimes */
 #define IBATINTERVAL (6 * 3500)       
 
+uint32_t beforeLoopEnterTime = 0;
 uint32_t currentTime = 0;
 uint32_t previousTime = 0;
 uint16_t cycleTime = 0;         // this is the number in micro second to achieve a full loop, it can differ a little and is taken into account in the PID loop
@@ -725,7 +726,7 @@ void loop(void)
 #endif
     }
 
-    currentTime = micros();
+    beforeLoopEnterTime = currentTime = micros();
     if (masterConfig.looptime == 0 || (int32_t)(currentTime - loopTime) >= 0) {
         loopTime = currentTime + masterConfig.looptime;
 

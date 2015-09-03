@@ -166,6 +166,7 @@ static const blackboxDeltaFieldDefinition_t blackboxMainFields[] = {
     {"loopIteration",-1, UNSIGNED, .Ipredict = PREDICT(0),     .Iencode = ENCODING(UNSIGNED_VB), .Ppredict = PREDICT(INC),           .Pencode = FLIGHT_LOG_FIELD_ENCODING_NULL, CONDITION(ALWAYS)},
     /* Time advances pretty steadily so the P-frame prediction is a straight line */
     {"time",       -1, UNSIGNED, .Ipredict = PREDICT(0),       .Iencode = ENCODING(UNSIGNED_VB), .Ppredict = PREDICT(STRAIGHT_LINE), .Pencode = ENCODING(SIGNED_VB), CONDITION(ALWAYS)},
+    {"beforeLoopEnterTime",-1, UNSIGNED,.Ipredict = PREDICT(0),.Iencode = ENCODING(UNSIGNED_VB), .Ppredict = PREDICT(STRAIGHT_LINE), .Pencode = ENCODING(SIGNED_VB), CONDITION(ALWAYS)},
     {"axisP",       0, SIGNED,   .Ipredict = PREDICT(0),       .Iencode = ENCODING(SIGNED_VB),   .Ppredict = PREDICT(PREVIOUS),      .Pencode = ENCODING(SIGNED_VB), CONDITION(ALWAYS)},
     {"axisP",       1, SIGNED,   .Ipredict = PREDICT(0),       .Iencode = ENCODING(SIGNED_VB),   .Ppredict = PREDICT(PREVIOUS),      .Pencode = ENCODING(SIGNED_VB), CONDITION(ALWAYS)},
     {"axisP",       2, SIGNED,   .Ipredict = PREDICT(0),       .Iencode = ENCODING(SIGNED_VB),   .Ppredict = PREDICT(PREVIOUS),      .Pencode = ENCODING(SIGNED_VB), CONDITION(ALWAYS)},
@@ -265,7 +266,7 @@ typedef enum BlackboxState {
 } BlackboxState;
 
 typedef struct blackboxMainState_t {
-    uint32_t time;
+    uint32_t time, beforeLoopEnterTime;
 
     int32_t axisPID_P[XYZ_AXIS_COUNT], axisPID_I[XYZ_AXIS_COUNT], axisPID_D[XYZ_AXIS_COUNT];
 
@@ -309,6 +310,7 @@ extern uint8_t motorCount;
 
 //From mw.c:
 extern uint32_t currentTime;
+extern uint32_t beforeLoopEnterTime;
 
 //From rx.c:
 extern uint16_t rssi;
@@ -487,6 +489,7 @@ static void writeIntraframe(void)
 
     blackboxWriteUnsignedVB(blackboxIteration);
     blackboxWriteUnsignedVB(blackboxCurrent->time);
+    blackboxWriteUnsignedVB(blackboxCurrent->beforeLoopEnterTime);
 
     blackboxWriteSignedVBArray(blackboxCurrent->axisPID_P, XYZ_AXIS_COUNT);
     blackboxWriteSignedVBArray(blackboxCurrent->axisPID_I, XYZ_AXIS_COUNT);
@@ -601,6 +604,7 @@ static void writeInterframe(void)
      * looptime spacing), use second-order differences.
      */
     blackboxWriteSignedVB((int32_t) (blackboxHistory[0]->time - 2 * blackboxHistory[1]->time + blackboxHistory[2]->time));
+    blackboxWriteSignedVB((int32_t) (blackboxHistory[0]->beforeLoopEnterTime - 2 * blackboxHistory[1]->beforeLoopEnterTime + blackboxHistory[2]->beforeLoopEnterTime));
 
     arraySubInt32(deltas, blackboxCurrent->axisPID_P, blackboxLast->axisPID_P, XYZ_AXIS_COUNT);
     blackboxWriteSignedVBArray(deltas, XYZ_AXIS_COUNT);
@@ -897,6 +901,7 @@ static void loadMainState(void)
     int i;
 
     blackboxCurrent->time = currentTime;
+    blackboxCurrent->beforeLoopEnterTime = beforeLoopEnterTime;
 
     for (i = 0; i < XYZ_AXIS_COUNT; i++) {
         blackboxCurrent->axisPID_P[i] = axisPID_P[i];
